@@ -33,24 +33,17 @@ module PromiseClient
 
   state do
     interface input, :promises, promise_in.schema
-    table :vars
     table :futures, [:handle, :timestamp]
     table :results, promise_out.schema
     scratch :done, [:flag]
   end
 
-  bootstrap do
-    vars <+ [[:waiting, false]]
-  end
-
   bloom do
     futures <= promises{|p| [p.handle, budtime()]}
-    vars <+- promises{|p| [:waiting, true]}
     promise_in <~ promises{|p| p}
     results <= promise_out
 
     done <= promise_out {|p| [true] if results.length == futures.length}
-    vars <+- done {|d| [:waiting, false] }
     stdio <~ (results*done).pairs {|r,d| [r.to_s] }
     futures <- (futures*done).pairs {|f, d| f }
     results <- (results*done).pairs {|r, d| r }
